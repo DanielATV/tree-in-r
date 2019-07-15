@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Ayudantia Arboles de Clasificacion en R
+
+Antes de comenzar necesitamos instalar el paquete a utilizar para crear nuestros árboles de decisión, para esto utilizamos el siguiente comando desde la terminal de R:
+
+~~~
+install.packages("tree")
+~~~
+O si utilizar R Studio puedes instalarlo seleccionando _**Tools $\leftarrow$ Install Packages**_ en la barra de herramientas.
+
+Una vez tenemos el Package instalado, lo importamos con el siguiente comando
+
+```{r}
+library(tree)
+```
+
+Para comenzar necesitamos cargar los datos que utilizaremos.
+
+```{r}
+data <- read.table("DatosControl.csv",header=TRUE, sep=",")
+```
+
+Para Revisar los datos de una columna en particular, por ejemplo NotaFinal, se consulta de la siguiente manera.
+
+~~~
+data$NotaFinal
+~~~
+
+Por otro lado, podemos consultar la cantidad de datos por cada posible valor de una columna, por ejemplo la columna NotaFinal, que es la que nos interesa predecir.
+```{r}
+xtabs(~ NotaFinal,data = data)
+```
+
+También podemos verlo en un gráfico de barras.
+
+```{r}
+counts <- table(data$NotaFinal)
+barplot(counts, main="Nota Final")
+```
+
+Como se ve, el número de datos por cada clase a predecir no es igual ¿Qué problemas podría traer esto?
+
+Por otro lado, tal como vieron en clases, necesitamos separar nuestro conjunto de datos en un subconjunto de entrenamiento y uno de pruebas ¿Cuál es la importancia de este paso?
+
+```{r}
+# Queremos obtener siempre lo mismo
+set.seed(42)
+# En este caso utilizaremos un conjunto de entrenamiento del 80% de los datos
+train_size <- floor(0.80 * nrow(data))
+train_mask <- sample(seq_len(nrow(data)),size = train_size)
+# Separamos nuestros conjuntos
+train <- data[train_mask, ]
+test <- data[-train_mask, ]
+```
+
+Podemos ver la cantidad de datos que tienen nuestros conjuntos creados
+```{r}
+nrow(data)
+nrow(train)
+nrow(test)
+```
+
+
+```{r}
+barplot(table(test$NotaFinal),main="Nota Final")
+```
+
+Con nuestros conjuntos separados podemos proceder a crear nuestro árbol de clasificación de la siguiente manera.
+
+```{r}
+# Creamos el árbol
+train.tree = tree(NotaFinal ~ Sexo + HorasEstudio + VTR + TiempoLibre + Carrete + Salud + Inasistencias, data=train)
+# Y mostramos información sobre él
+summary(train.tree)
+```
+
+También podemos hacer un plot de nuestro árbol.
+
+```{r}
+plot(train.tree)
+text(train.tree,pretty = 1)
+```
+
+¿Notan algo raro? 
+
+Sí, pues se está tomando el VTR como variable continua cuando es una variable discreta, así que vamos a discretizar.
+
+```{r}
+data$Inasistencias = as.factor(data$Inasistencias)
+data$VTR = as.factor(data$VTR)
+data$Sexo = as.factor(data$Sexo)
+data$HorasEstudio = as.factor(data$HorasEstudio)
+data$TiempoLibre = as.factor(data$TiempoLibre)
+data$Carrete = as.factor(data$Carrete)
+data$Salud = as.factor(data$Salud)
+
+```
+
+Con las variables ya discretizadas creamos nuestros conjuntos nuevamente.
+
+```{r}
+# Queremos obtener siempre lo mismo
+set.seed(42)
+# En este caso utilizaremos un conjunto de entrenamiento del 80% de los datos
+train_size <- floor(0.80 * nrow(data))
+train_mask <- sample(seq_len(nrow(data)),size = train_size)
+# Separamos nuestros conjuntos
+train <- data[train_mask, ]
+test <- data[-train_mask, ]
+```
+
+Y finalmente nuestro árbol de clasificación.
+
+```{r}
+train.tree = tree(NotaFinal ~ Sexo + HorasEstudio + VTR + TiempoLibre + Carrete + Salud + Inasistencias, data=train)
+summary(train.tree)
+```
+
+```{r}
+plot(train.tree)
+text(train.tree, pretty = 1)
+```
+
+Con el siguiente comando podemos ver el árbol nodo a nodo.
+```{r}
+train.tree
+```
+
+Sabemos que este árbol tiene un error de clasificación de 0.2744 _**en entrenamiento**_, veamos como se comporta en el conjunto de pruebas. Para esto, creemos una matriz de confusión.
+
+```{r}
+# Predecimos los valores del conjunto de test utilizando nuestro árbol
+pred = predict(train.tree,test,type="class")
+# Creamos nuestra matriz de confusión
+conf_matrix <- with(test,table(pred,test$NotaFinal))
+conf_matrix
+```
+
+Luego calculamos el Classification Error
+
+```{r}
+acc <- sum(diag(conf_matrix))/nrow(test)
+miss_class <- 1 - acc
+miss_class
+```
+
